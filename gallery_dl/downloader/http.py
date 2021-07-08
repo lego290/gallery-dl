@@ -76,6 +76,10 @@ class HttpDownloader(DownloaderBase):
                 util.remove_file(pathfmt.temppath)
 
     def _download_impl(self, url, pathfmt):
+        # EDIT: Ignore urls ending with jpg
+        if url.endswith('.jpg'):
+            return True
+
         response = None
         tries = 0
         msg = ""
