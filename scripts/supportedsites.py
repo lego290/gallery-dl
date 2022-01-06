@@ -22,10 +22,10 @@ CATEGORY_MAP = {
     "aryion"         : "Eka's Portal",
     "b4k"            : "arch.b4k.co",
     "baraag"         : "baraag",
+    "bbc"            : "BBC",
     "bcy"            : "半次元",
-    "bobx"           : "BobX",
+    "comicvine"      : "Comic Vine",
     "deviantart"     : "DeviantArt",
-    "dokireader"     : "Doki Reader",
     "drawfriends"    : "Draw Friends",
     "dynastyscans"   : "Dynasty Reader",
     "e621"           : "e621",
@@ -38,7 +38,6 @@ CATEGORY_MAP = {
     "furaffinity"    : "Fur Affinity",
     "hbrowse"        : "HBrowse",
     "hentai2read"    : "Hentai2Read",
-    "hentaicafe"     : "Hentai Cafe",
     "hentaicosplays" : "Hentai Cosplay",
     "hentaifoundry"  : "Hentai Foundry",
     "hentaifox"      : "HentaiFox",
@@ -55,10 +54,9 @@ CATEGORY_MAP = {
     "imagechest"     : "ImageChest",
     "imgth"          : "imgth",
     "imgur"          : "imgur",
-    "jaiminisbox"    : "Jaimini's Box",
+    "joyreactor"     : "JoyReactor",
     "kabeuchi"       : "かべうち",
     "kireicake"      : "Kirei Cake",
-    "kissmanga"      : "KissManga",
     "lineblog"       : "LINE BLOG",
     "livedoor"       : "livedoor Blog",
     "omgmiamiswimwear": "Omg Miami Swimwear",
@@ -69,7 +67,6 @@ CATEGORY_MAP = {
     "manganelo"      : "Manganato",
     "mangapark"      : "MangaPark",
     "mangasee"       : "MangaSee",
-    "mangastream"    : "Manga Stream",
     "mastodon.social": "mastodon.social",
     "myhentaigallery": "My Hentai Gallery",
     "myportfolio"    : "Adobe Portfolio",
@@ -82,14 +79,15 @@ CATEGORY_MAP = {
     "paheal"         : "rule #34",
     "photovogue"     : "PhotoVogue",
     "pornimagesxxx"  : "Porn Image",
+    "pornreactor"    : "PornReactor",
     "powermanga"     : "PowerManga",
     "readcomiconline": "Read Comic Online",
     "rbt"            : "RebeccaBlackTech",
     "redgifs"        : "RedGIFs",
     "rule34"         : "Rule 34",
+    "rule34us"       : "Rule 34",
     "sankaku"        : "Sankaku Channel",
     "sankakucomplex" : "Sankaku Complex",
-    "seaotterscans"  : "Sea Otter Scans",
     "seiga"          : "Niconico Seiga",
     "seisoparty"     : "Seiso",
     "senmanga"       : "Sen Manga",
@@ -102,6 +100,7 @@ CATEGORY_MAP = {
     "speakerdeck"    : "Speaker Deck",
     "subscribestar"  : "SubscribeStar",
     "tbib"           : "The Big ImageBoard",
+    "thatpervert"    : "ThatPervert",
     "thebarchive"    : "The /b/ Archive",
     "thecollection"  : "The /co/llection",
     "theloudbooru"   : "The Loud Booru",
@@ -113,10 +112,10 @@ CATEGORY_MAP = {
     "wakarimasen"    : "Wakarimasen Archive",
     "webtoons"       : "Webtoon",
     "wikiart"        : "WikiArt.org",
-    "worldthree"     : "World Three",
     "xhamster"       : "xHamster",
     "xvideos"        : "XVideos",
     "yandere"        : "yande.re",
+    "zzzz"           : "ZzZz",
 }
 
 SUBCATEGORY_MAP = {
@@ -140,9 +139,15 @@ SUBCATEGORY_MAP = {
     "artstation": {
         "artwork": "Artwork Listings",
     },
+    "desktopography": {
+        "site": "",
+    },
     "deviantart": {
         "stash": "Sta.sh",
         "watch-posts": "",
+    },
+    "fanbox": {
+        "redirect": "",
     },
     "hentaifoundry": {
         "story": "",
@@ -151,6 +156,10 @@ SUBCATEGORY_MAP = {
         "posts": "",
         "saved": "Saved Posts",
         "tagged": "Tagged Posts",
+    },
+    "kemonoparty": {
+        "discord": "Discord Servers",
+        "discord-server": "",
     },
     "mangadex": {
         "feed" : "Followed Feed",
@@ -167,6 +176,7 @@ SUBCATEGORY_MAP = {
     "pixiv": {
         "me"  : "pixiv.me Links",
         "pixivision": "pixivision",
+        "sketch": "Sketch",
         "work": "individual Images",
     },
     "sankaku": {
@@ -177,6 +187,7 @@ SUBCATEGORY_MAP = {
     },
     "twitter": {
         "media": "Media Timelines",
+        "replies": "",
         "list-members": "List Members",
     },
     "wallhaven": {
@@ -196,6 +207,7 @@ BASE_MAP = {
     "foolslide"   : "FoOlSlide Instances",
     "gelbooru_v01": "Gelbooru Beta 0.1.11",
     "gelbooru_v02": "Gelbooru Beta 0.2",
+    "lolisafe"    : "lolisafe and chibisafe",
     "moebooru"    : "Moebooru and MyImouto",
 }
 
@@ -225,6 +237,7 @@ AUTH_MAP = {
     "imgbb"          : "Supported",
     "inkbunny"       : "Supported",
     "instagram"      : "Supported",
+    "kemonoparty"    : "Supported",
     "mangadex"       : "Supported",
     "mangoxo"        : "Supported",
     "mastodon.social": _OAUTH,
@@ -233,12 +246,13 @@ AUTH_MAP = {
     "patreon"        : _COOKIES,
     "pawoo"          : _OAUTH,
     "pillowfort"     : "Supported",
-    "pinterest"      : "Supported",
+    "pinterest"      : _COOKIES,
     "pixiv"          : _OAUTH,
     "ponybooru"      : "API Key",
     "reddit"         : _OAUTH,
     "sankaku"        : "Supported",
     "seiga"          : "Required",
+    "seisoparty"     : "Supported",
     "smugmug"        : _OAUTH,
     "subscribestar"  : "Supported",
     "tapas"          : "Supported",
@@ -254,6 +268,8 @@ IGNORE_LIST = (
     "oauth",
     "recursive",
     "test",
+    "ytdl",
+    "generic",
 )
 
 

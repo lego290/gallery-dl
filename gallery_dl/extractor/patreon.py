@@ -20,6 +20,7 @@ class PatreonExtractor(Extractor):
     """Base class for patreon extractors"""
     category = "patreon"
     root = "https://www.patreon.com"
+    cookiedomain = ".patreon.com"
     directory_fmt = ("{category}", "{creator[full_name]}")
     filename_fmt = "{id}_{title}_{num:>02}.{extension}"
     archive_fmt = "{id}_{num}"
@@ -27,28 +28,24 @@ class PatreonExtractor(Extractor):
     _warning = True
 
     def items(self):
-        yield Message.Version, 1
 
         if self._warning:
-            if "session_id" not in self.session.cookies:
+            if not self._check_cookies(("session_id",)):
                 self.log.warning("no 'session_id' cookie set")
             PatreonExtractor._warning = False
+        generators = self._build_file_generators(self.config("files"))
 
         for post in self.posts():
 
             if not post.get("current_user_can_view", True):
                 self.log.warning("Not allowed to view post %s", post["id"])
                 continue
+            yield Message.Directory, post
+
             post["num"] = 0
             hashes = set()
-
-            yield Message.Directory, post
-            for kind, url, name in itertools.chain(
-                self._images(post),
-                self._attachments(post),
-                self._postfile(post),
-                self._content(post),
-            ):
+            for kind, url, name in itertools.chain.from_iterable(
+                    g(post) for g in generators):
                 fhash = self._filehash(url)
                 if fhash not in hashes or not fhash:
                     hashes.add(fhash)
@@ -83,15 +80,14 @@ class PatreonExtractor(Extractor):
             if url:
                 yield "attachment", url, attachment["name"]
 
-    @staticmethod
-    def _content(post):
+    def _content(self, post):
         content = post.get("content")
         if content:
             for img in text.extract_iter(
                     content, '<img data-media-id="', '>'):
                 url = text.extract(img, 'src="', '"')[0]
                 if url:
-                    yield "content", url, url
+                    yield "content", url, self._filename(url) or url
 
     def posts(self):
         """Return all relevant post objects"""
@@ -213,6 +209,20 @@ class PatreonExtractor(Extractor):
             "&json-api-version=1.0"
         )
 
+    def _build_file_generators(self, filetypes):
+        if filetypes is None:
+            return (self._images, self._attachments,
+                    self._postfile, self._content)
+        genmap = {
+            "images"     : self._images,
+            "attachments": self._attachments,
+            "postfile"   : self._postfile,
+            "content"    : self._content,
+        }
+        if isinstance(filetypes, str):
+            filetypes = filetypes.split(",")
+        return [genmap[ft] for ft in filetypes]
+
 
 class PatreonCreatorExtractor(PatreonExtractor):
     """Extractor for a creator's works"""
@@ -306,8 +316,9 @@ class PatreonPostExtractor(PatreonExtractor):
             "count": 4,
         }),
         # postfile + content
-        ("https://www.patreon.com/posts/19987002", {
-            "count": 4,
+        ("https://www.patreon.com/posts/56127163", {
+            "count": 3,
+            "keyword": {"filename": r"re:^(?!1).+$"},
         }),
         # tags (#1539)
         ("https://www.patreon.com/posts/free-post-12497641", {

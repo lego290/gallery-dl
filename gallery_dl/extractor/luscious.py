@@ -105,7 +105,7 @@ class LusciousAlbumExtractor(LusciousExtractor):
             "exception": exception.NotFoundError,
         }),
         ("https://members.luscious.net/albums/login-required_323871/", {
-            "count": 78,
+            "count": 64,
         }),
         ("https://www.luscious.net/albums/okinami_277031/"),
         ("https://members.luscious.net/albums/okinami_277031/"),
@@ -116,10 +116,10 @@ class LusciousAlbumExtractor(LusciousExtractor):
     def __init__(self, match):
         LusciousExtractor.__init__(self, match)
         self.album_id = match.group(1)
+        self.gif = self.config("gif", False)
 
     def items(self):
         album = self.metadata()
-        yield Message.Version, 1
         yield Message.Directory, {"album": album}
         for num, image in enumerate(self.images(), 1):
             image["num"] = num
@@ -130,7 +130,10 @@ class LusciousAlbumExtractor(LusciousExtractor):
             image["date"] = text.parse_timestamp(image["created"])
             image["id"] = text.parse_int(image["id"])
 
-            url = image["url_to_video"] or image["url_to_original"]
+            url = (image["url_to_original"] or image["url_to_video"]
+                   if self.gif else
+                   image["url_to_video"] or image["url_to_original"])
+
             yield Message.Url, url, text.nameext_from_url(url, image)
 
     def metadata(self):
@@ -439,7 +442,6 @@ fragment AlbumMinimal on Album {
     }
 }
 """
-        yield Message.Version, 1
         while True:
             data = self._graphql("AlbumListWithPeek", variables, query)
 

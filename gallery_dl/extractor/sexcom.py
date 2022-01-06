@@ -21,7 +21,6 @@ class SexcomExtractor(Extractor):
     root = "https://www.sex.com"
 
     def items(self):
-        yield Message.Version, 1
         yield Message.Directory, self.metadata()
         for pin in map(self._parse_pin, self.pins()):
             if pin:
@@ -79,9 +78,14 @@ class SexcomExtractor(Extractor):
                     path += "/hd"
                 data["url"] = self.root + path
             else:
+                iframe = extr('<iframe', '>')
+                src = (text.extract(iframe, ' src="', '"')[0] or
+                       text.extract(iframe, " src='", "'")[0])
+                if not src:
+                    self.log.warning("Unable to fetch media from %s", url)
+                    return None
                 data["extension"] = None
-                data["url"] = "ytdl:" + text.extract(
-                    extr('<iframe', '>'), ' src="', '"')[0]
+                data["url"] = "ytdl:" + src
         else:
             data["url"] = text.unescape(extr(' src="', '"').partition("?")[0])
             text.nameext_from_url(data["url"], data)

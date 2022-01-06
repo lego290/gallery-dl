@@ -25,7 +25,7 @@ class SlidesharePresentationExtractor(Extractor):
         (("https://www.slideshare.net"
           "/Slideshare/get-started-with-slide-share"), {
             "url": "23685fb9b94b32c77a547d45dc3a82fe7579ea18",
-            "content": "ee54e54898778e92696a7afec3ffabdbd98eb0cc",
+            "content": "2e90a01c6ca225579ebf8f98ab46f97a28a5e45c",
         }),
         # long title
         (("https://www.slideshare.net/pragmaticsolutions/warum-sie-nicht-ihren"
@@ -49,7 +49,6 @@ class SlidesharePresentationExtractor(Extractor):
         data = self.get_job_metadata(page)
         imgs = self.get_image_urls(page)
         data["count"] = len(imgs)
-        yield Message.Version, 1
         yield Message.Directory, data
         for data["num"], url in enumerate(imgs, 1):
             yield Message.Url, url, text.nameext_from_url(url, data)

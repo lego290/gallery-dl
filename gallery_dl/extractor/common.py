@@ -42,6 +42,7 @@ class Extractor():
     def __init__(self, match):
         self.log = logging.getLogger(self.category)
         self.url = match.string
+        self.finalize = None
 
         if self.basecategory:
             self.config = self._config_shared
@@ -53,13 +54,13 @@ class Extractor():
         self._retries = self.config("retries", 4)
         self._timeout = self.config("timeout", 30)
         self._verify = self.config("verify", True)
-        self.request_interval = self.config(
-            "sleep-request", self.request_interval)
+        self._interval = util.build_duration_func(
+            self.config("sleep-request", self.request_interval),
+            self.request_interval_min,
+        )
 
         if self._retries < 0:
             self._retries = float("inf")
-        if self.request_interval < self.request_interval_min:
-            self.request_interval = self.request_interval_min
 
         self._init_session()
         self._init_cookies()
@@ -102,15 +103,19 @@ class Extractor():
 
     def request(self, url, *, method="GET", session=None, retries=None,
                 encoding=None, fatal=True, notfound=None, **kwargs):
-        tries = 1
-        retries = self._retries if retries is None else retries
-        session = self.session if session is None else session
-        kwargs.setdefault("timeout", self._timeout)
-        kwargs.setdefault("verify", self._verify)
+        if retries is None:
+            retries = self._retries
+        if session is None:
+            session = self.session
+        if "timeout" not in kwargs:
+            kwargs["timeout"] = self._timeout
+        if "verify" not in kwargs:
+            kwargs["verify"] = self._verify
         response = None
+        tries = 1
 
-        if self.request_interval:
-            seconds = (self.request_interval -
+        if self._interval:
+            seconds = (self._interval() -
                        (time.time() - Extractor.request_timestamp))
             if seconds > 0.0:
                 self.log.debug("Sleeping for %.5s seconds", seconds)
@@ -159,7 +164,8 @@ class Extractor():
             self.log.debug("%s (%s/%s)", msg, tries, retries+1)
             if tries > retries:
                 break
-            time.sleep(max(tries, self.request_interval))
+            time.sleep(
+                max(tries, self._interval()) if self._interval else tries)
             tries += 1
 
         raise exception.HttpError(msg, response)
@@ -226,7 +232,7 @@ class Extractor():
             elif platform == "linux":
                 platform = "X11; Linux x86_64"
             elif platform == "macos":
-                platform = "Macintosh; Intel Mac OS X 11.2"
+                platform = "Macintosh; Intel Mac OS X 11.5"
 
             if browser == "chrome":
                 _emulate_browser_chrome(session, platform)
@@ -235,7 +241,7 @@ class Extractor():
         else:
             headers["User-Agent"] = self.config("user-agent", (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64; "
-                "rv:78.0) Gecko/20100101 Firefox/78.0"))
+                "rv:91.0) Gecko/20100101 Firefox/91.0"))
             headers["Accept"] = "*/*"
             headers["Accept-Language"] = "en-US,en;q=0.5"
             headers["Accept-Encoding"] = "gzip, deflate"
@@ -330,7 +336,8 @@ class Extractor():
         now = time.time()
 
         for cookie in self._cookiejar:
-            if cookie.name in names and cookie.domain == domain:
+            if cookie.name in names and (
+                    not domain or cookie.domain == domain):
                 if cookie.expires and cookie.expires < now:
                     self.log.warning("Cookie '%s' has expired", cookie.name)
                 else:
@@ -338,6 +345,11 @@ class Extractor():
                     if not names:
                         return True
         return False
+
+    def _prepare_ddosguard_cookies(self):
+        if not self._cookiejar.get("__ddg2", domain=self.cookiedomain):
+            self._cookiejar.set(
+                "__ddg2", util.generate_token(), domain=self.cookiedomain)
 
     def _get_date_min_max(self, dmin=None, dmax=None):
         """Retrieve and parse 'date-min' and 'date-max' config values"""
@@ -437,18 +449,24 @@ class GalleryExtractor(Extractor):
         imgs = self.images(page)
 
         if "count" in data:
-            images = zip(
-                range(1, data["count"]+1),
-                imgs,
-            )
+            if self.config("page-reverse"):
+                images = util.enumerate_reversed(imgs, 1, data["count"])
+            else:
+                images = zip(
+                    range(1, data["count"]+1),
+                    imgs,
+                )
         else:
+            enum = enumerate
             try:
                 data["count"] = len(imgs)
             except TypeError:
                 pass
-            images = enumerate(imgs, 1)
+            else:
+                if self.config("page-reverse"):
+                    enum = util.enumerate_reversed
+            images = enum(imgs, 1)
 
-        yield Message.Version, 1
         yield Message.Directory, data
         for data[self.enum], (url, imgdata) in images:
             if imgdata:
@@ -504,7 +522,6 @@ class MangaExtractor(Extractor):
         if self.reverse:
             chapters.reverse()
 
-        yield Message.Version, 1
         for chapter, data in chapters:
             data["_extractor"] = self.chapterclass
             yield Message.Queue, chapter, data
@@ -555,7 +572,11 @@ class BaseExtractor(Extractor):
         if not self.category:
             for index, group in enumerate(match.groups()):
                 if group is not None:
-                    self.category, self.root = self.instances[index]
+                    if index:
+                        self.category, self.root = self.instances[index-1]
+                    else:
+                        self.root = group
+                        self.category = group.partition("://")[2]
                     break
         Extractor.__init__(self, match)
 
@@ -578,7 +599,10 @@ class BaseExtractor(Extractor):
                 pattern = re.escape(root[root.index(":") + 3:])
             pattern_list.append(pattern + "()")
 
-        return r"(?:https?://)?(?:" + "|".join(pattern_list) + r")"
+        return (
+            r"(?:" + cls.basecategory + r":(https?://[^/?#]+)|"
+            r"(?:https?://)?(?:" + "|".join(pattern_list) + r"))"
+        )
 
 
 class HTTPSAdapter(HTTPAdapter):
@@ -602,8 +626,8 @@ class HTTPSAdapter(HTTPAdapter):
 
 def _emulate_browser_firefox(session, platform):
     headers = session.headers
-    headers["User-Agent"] = ("Mozilla/5.0 (" + platform + "; rv:78.0) "
-                             "Gecko/20100101 Firefox/78.0")
+    headers["User-Agent"] = ("Mozilla/5.0 (" + platform + "; rv:91.0) "
+                             "Gecko/20100101 Firefox/91.0")
     headers["Accept"] = ("text/html,application/xhtml+xml,"
                          "application/xml;q=0.9,image/webp,*/*;q=0.8")
     headers["Accept-Language"] = "en-US,en;q=0.5"
@@ -636,13 +660,13 @@ def _emulate_browser_firefox(session, platform):
 
 def _emulate_browser_chrome(session, platform):
     if platform.startswith("Macintosh"):
-        platform = platform.replace(".", "_") + "_0"
+        platform = platform.replace(".", "_") + "_2"
 
     headers = session.headers
     headers["Upgrade-Insecure-Requests"] = "1"
     headers["User-Agent"] = (
         "Mozilla/5.0 (" + platform + ") AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36")
+        "(KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36")
     headers["Accept"] = ("text/html,application/xhtml+xml,application/xml;"
                          "q=0.9,image/webp,image/apng,*/*;q=0.8")
     headers["Referer"] = None

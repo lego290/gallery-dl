@@ -63,6 +63,12 @@ Conversion specifiers allow to *convert* the value to a different form or type. 
     <td><code>Foo Bar</code></td>
 </tr>
 <tr>
+    <td align="center"><code>j</code></td>
+    <td>Serialize value to a JSON formatted string</td>
+    <td><code>{tags!j}</code></td>
+    <td><code>["sun", "tree", "water"]</code></td>
+</tr>
+<tr>
     <td align="center"><code>t</code></td>
     <td>Trim a string, i.e. remove leading and trailing whitespace characters</td>
     <td><code>{bar!t}</code></td>
@@ -123,8 +129,8 @@ Format specifiers can be used for advanced formatting by using the options provi
 </thead>
 <tbody>
 <tr>
-    <td rowspan="2"><code>?&lt;before&gt;/&lt;after&gt;/</code></td>
-    <td rowspan="2">Adds <code>&lt;before&gt;</code> and <code>&lt;after&gt;</code> to the actual value if it evaluates to <code>True</code>. Otherwise the whole replacement field becomes an empty string.</td>
+    <td rowspan="2"><code>?&lt;start&gt;/&lt;end&gt;/</code></td>
+    <td rowspan="2">Adds <code>&lt;start&gt;</code> and <code>&lt;end&gt;</code> to the actual value if it evaluates to <code>True</code>. Otherwise the whole replacement field becomes an empty string.</td>
     <td><code>{foo:?[/]/}</code></td>
     <td><code>[Foo&nbsp;Bar]</code></td>
 </tr>
@@ -154,13 +160,54 @@ Format specifiers can be used for advanced formatting by using the options provi
     <td><code>{foo:Ro/()/}</code></td>
     <td><code>F()()&nbsp;Bar</code></td>
 </tr>
+<tr>
+    <td><code>D&lt;format&gt;/</code></td>
+    <td>Parse a string value to a <code>datetime</code> object according to <a href="https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes"><code>&lt;format&gt;</code></a></td>
+    <td><code>{updated:D%b %d %Y %I:%M %p/}</code></td>
+    <td><code>2010-01-01 00:00:00</code></td>
+</tr>
 </tbody>
 </table>
 
-All special format specifiers (`?`, `L`, `J`, `R`) can be chained and combined with one another, but must always come before any standard format specifiers:
+All special format specifiers (`?`, `L`, `J`, `R`, `D`) can be chained and combined with one another, but must always come before any standard format specifiers:
 
 For example `{foo:?//RF/B/Ro/e/> 10}` -> `   Bee Bar`
 - `?//` - Tests if `foo` has a value
 - `RF/B/` - Replaces `F` with `B`
 - `Ro/e/` - Replaces `o` with `e`
 - `> 10` - Left-fills the string with spaces until it is 10 characters long
+
+
+## Special Type Format Strings
+
+Starting a format string with '\f<Type> ' allows to set a different format string type than the default. Available ones are:
+
+<table>
+<thead>
+<tr>
+    <th>Type</th>
+    <th>Description</th>
+    <th width="32%">Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+    <td align="center"><code>T</code></td>
+    <td>A template file containing the actual format string</td>
+    <td><code>\fT ~/.templates/booru.txt</code></td>
+</tr>
+<tr>
+    <td align="center"><code>E</code></td>
+    <td>An arbitrary Python expression</td>
+    <td><code>\fE title.upper().replace(' ', '-')</code></td>
+</tr>
+<tr>
+    <td align="center"><code>M</code></td>
+    <td> Name of a Python module followed by one of its functions.
+     This function gets called with the current metadata dict as
+     argument and should return a string.</td>
+    <td><code>\fM my_module:generate_text</code></td>
+</tr>
+</tbody>
+</table>
+

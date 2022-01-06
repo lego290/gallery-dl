@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2020 Mike Fährmann
+# Copyright 2015-2021 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -10,9 +10,11 @@
 
 from .common import GalleryExtractor, Extractor, Message
 from .nozomi import decode_nozomi
+from ..cache import memcache
 from .. import text, util
 import string
 import json
+import re
 
 
 class HitomiGalleryExtractor(GalleryExtractor):
@@ -24,8 +26,10 @@ class HitomiGalleryExtractor(GalleryExtractor):
                r"/(?:[^/?#]+-)?(\d+)")
     test = (
         ("https://hitomi.la/galleries/867789.html", {
-            "pattern": r"https://[a-c]b.hitomi.la/images/./../[0-9a-f]+.jpg",
+            "pattern": r"https://[a-c]b.hitomi.la/images/1641140516/\d+"
+                       r"/[0-9a-f]{64}\.jpg",
             "keyword": "4873ef9a523621fc857b114e0b2820ba4066e9ae",
+            "options": (("metadata", True),),
             "count": 16,
         }),
         # download test
@@ -35,12 +39,12 @@ class HitomiGalleryExtractor(GalleryExtractor):
         }),
         # Game CG with scenes (#321)
         ("https://hitomi.la/galleries/733697.html", {
-            "url": "8dfbcb1e51cec43a7112d58b7e92153155ada3b9",
+            "url": "d4854175da2b5fa4ae62749266c7be0bf237dc99",
             "count": 210,
         }),
         # fallback for galleries only available through /reader/ URLs
         ("https://hitomi.la/galleries/1045954.html", {
-            "url": "a5af7fdca1f5c93c289af128914a8488ea345036",
+            "url": "eea99c3745719a7a392150335e6ae3f73faa0b85",
             "count": 1413,
         }),
         # gallery with "broken" redirect
@@ -71,7 +75,7 @@ class HitomiGalleryExtractor(GalleryExtractor):
         self.info = info = json.loads(page.partition("=")[2])
 
         data = self._data_from_gallery_info(info)
-        if self.config("metadata", True):
+        if self.config("metadata", False):
             data.update(self._data_from_gallery_page(info))
         return data
 
@@ -133,20 +137,19 @@ class HitomiGalleryExtractor(GalleryExtractor):
         }
 
     def images(self, _):
+        # see https://ltn.hitomi.la/gg.js
+        gg_m, gg_b, gg_default = _parse_gg(self)
+
         result = []
         for image in self.info["files"]:
             ihash = image["hash"]
             idata = text.nameext_from_url(image["name"])
 
             # see https://ltn.hitomi.la/common.js
-            inum = int(ihash[-3:-1], 16)
-            frontends = 2 if inum < 0x70 else 3
-            inum = 1 if inum < 0x49 else inum
-
+            inum = int(ihash[-1] + ihash[-3:-1], 16)
             url = "https://{}b.hitomi.la/images/{}/{}/{}.{}".format(
-                chr(97 + (inum % frontends)),
-                ihash[-1], ihash[-3:-1], ihash,
-                idata["extension"],
+                chr(97 + gg_m.get(inum, gg_default)),
+                gg_b, inum, ihash, idata["extension"],
             )
             result.append((url, idata))
         return result
@@ -186,3 +189,26 @@ class HitomiTagExtractor(Extractor):
         for gallery_id in decode_nozomi(self.request(url).content):
             url = "https://hitomi.la/galleries/{}.html".format(gallery_id)
             yield Message.Queue, url, data
+
+
+@memcache()
+def _parse_gg(extr):
+    page = extr.request("https://ltn.hitomi.la/gg.js").text
+
+    m = {}
+    keys = []
+    for match in re.finditer(
+            r"case\s+(\d+):(?:\s*o\s*=\s*(\d+))?", page):
+        key, value = match.groups()
+        keys.append(int(key))
+
+        if value:
+            value = int(value)
+            for key in keys:
+                m[key] = value
+            keys.clear()
+
+    d = re.search(r"default:\s*o\s*=\s*(\d+)", page)
+    b = re.search(r"b:\s*[\"'](.+)[\"']", page)
+
+    return m, b.group(1).strip("/"), int(d.group(1)) if d else int(not value)

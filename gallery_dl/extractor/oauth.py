@@ -31,8 +31,8 @@ class OAuthBase(Extractor):
         self.cache = config.get(("extractor", self.category), "cache", True)
 
     def oauth_config(self, key, default=None):
-        return config.interpolate(
-            ("extractor", self.subcategory), key, default)
+        value = config.interpolate(("extractor", self.subcategory), key)
+        return value if value is not None else default
 
     def recv(self):
         """Open local HTTP server and recv callback parameters"""
@@ -220,7 +220,7 @@ class OAuthDeviantart(OAuthBase):
                 "client-secret", deviantart.DeviantartOAuthAPI.CLIENT_SECRET),
             "https://www.deviantart.com/oauth2/authorize",
             "https://www.deviantart.com/oauth2/token",
-            scope="browse",
+            scope="browse user.manage",
             cache=deviantart._refresh_token_cache,
         )
 
@@ -415,7 +415,7 @@ class OAuthPixiv(OAuthBase):
         print("""
 1) Open your browser's Developer Tools (F12) and switch to the Network tab
 2) Login
-4) Select the last network monitor entry ('callback?state=...')
+3) Select the last network monitor entry ('callback?state=...')
 4) Copy its 'code' query parameter, paste it below, and press Enter
 """)
         code = input("code: ")

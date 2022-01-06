@@ -20,10 +20,9 @@ class FantiaExtractor(Extractor):
     _warning = True
 
     def items(self):
-        yield Message.Version, 1
 
         if self._warning:
-            if "_session_id" not in self.session.cookies:
+            if not self._check_cookies(("_session_id",)):
                 self.log.warning("no '_session_id' cookie set")
             FantiaExtractor._warning = False
 
@@ -67,6 +66,8 @@ class FantiaExtractor(Extractor):
             "comment": resp["comment"],
             "rating": resp["rating"],
             "posted_at": resp["posted_at"],
+            "date": text.parse_datetime(
+                resp["posted_at"], "%a, %d %b %Y %H:%M:%S %z"),
             "fanclub_id": resp["fanclub"]["id"],
             "fanclub_user_id": resp["fanclub"]["user"]["id"],
             "fanclub_user_name": resp["fanclub"]["user"]["name"],

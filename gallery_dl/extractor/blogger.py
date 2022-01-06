@@ -15,7 +15,7 @@ import re
 
 BASE_PATTERN = (
     r"(?:blogger:(?:https?://)?([^/]+)|"
-    r"(?:https?://)?([^.]+\.blogspot\.com))")
+    r"(?:https?://)?([\w-]+\.blogspot\.com))")
 
 
 class BloggerExtractor(Extractor):
@@ -34,7 +34,6 @@ class BloggerExtractor(Extractor):
         self.api = BloggerAPI(self)
 
     def items(self):
-        yield Message.Version, 1
 
         blog = self.api.blog_by_url("http://" + self.blog)
         blog["pages"] = blog["pages"]["totalItems"]

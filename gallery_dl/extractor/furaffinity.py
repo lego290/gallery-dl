@@ -22,6 +22,7 @@ class FuraffinityExtractor(Extractor):
     archive_fmt = "{id}"
     cookiedomain = ".furaffinity.net"
     root = "https://www.furaffinity.net"
+    _warning = True
 
     def __init__(self, match):
         Extractor.__init__(self, match)
@@ -29,9 +30,16 @@ class FuraffinityExtractor(Extractor):
         self.offset = 0
 
         if self.config("descriptions") == "html":
-            self._process_description = lambda x: x.strip()
+            self._process_description = str.strip
 
     def items(self):
+
+        if self._warning:
+            if not self._check_cookies(("a", "b")):
+                self.log.warning("no 'a' and 'b' session cookies set")
+            FuraffinityExtractor._warning = False
+
+        external = self.config("external", False)
         metadata = self.metadata()
         for post_id in util.advance(self.posts(), self.offset):
             post = self._parse_post(post_id)
@@ -41,8 +49,10 @@ class FuraffinityExtractor(Extractor):
                 yield Message.Directory, post
                 yield Message.Url, post["url"], post
 
-    def posts(self):
-        return self._pagination()
+                if external:
+                    for url in text.extract_iter(
+                            post["_description"], 'href="http', '"'):
+                        yield Message.Queue, "http" + url, post
 
     def metadata(self):
         return None
@@ -80,8 +90,7 @@ class FuraffinityExtractor(Extractor):
             data["tags"] = text.split_html(tags)
             data["title"] = text.unescape(extr("<h2><p>", "</p></h2>"))
             data["artist"] = extr("<strong>", "<")
-            data["description"] = self._process_description(extr(
-                'class="section-body">', '</div>'))
+            data["_description"] = extr('class="section-body">', '</div>')
             data["views"] = pi(rh(extr('class="views">', '</span>')))
             data["favorites"] = pi(rh(extr('class="favorites">', '</span>')))
             data["comments"] = pi(rh(extr('class="comments">', '</span>')))
@@ -108,12 +117,12 @@ class FuraffinityExtractor(Extractor):
             data["tags"] = text.split_html(extr(
                 'id="keywords">', '</div>'))[::2]
             data["rating"] = extr('<img alt="', ' ')
-            data["description"] = self._process_description(extr(
-                "</table>", "</table>"))
+            data["_description"] = extr("</table>", "</table>")
 
         data["artist_url"] = data["artist"].replace("_", "").lower()
         data["user"] = self.user or data["artist_url"]
         data["date"] = text.parse_timestamp(data["filename"].partition(".")[0])
+        data["description"] = self._process_description(data["_description"])
 
         return data
 
@@ -121,12 +130,12 @@ class FuraffinityExtractor(Extractor):
     def _process_description(description):
         return text.unescape(text.remove_html(description, "", ""))
 
-    def _pagination(self):
+    def _pagination(self, path):
         num = 1
 
         while True:
             url = "{}/{}/{}/{}/".format(
-                self.root, self.subcategory, self.user, num)
+                self.root, path, self.user, num)
             page = self.request(url).text
             post_id = None
 
@@ -191,6 +200,9 @@ class FuraffinityGalleryExtractor(FuraffinityExtractor):
         "count": 6,
     })
 
+    def posts(self):
+        return self._pagination("gallery")
+
 
 class FuraffinityScrapsExtractor(FuraffinityExtractor):
     """Extractor for a furaffinity user's scraps"""
@@ -202,6 +214,9 @@ class FuraffinityScrapsExtractor(FuraffinityExtractor):
                    r"/art/[^/]+(/stories)?/\d+/\d+.\w+.",
         "count": ">= 3",
     })
+
+    def posts(self):
+        return self._pagination("scraps")
 
 
 class FuraffinityFavoriteExtractor(FuraffinityExtractor):
@@ -224,16 +239,27 @@ class FuraffinitySearchExtractor(FuraffinityExtractor):
     """Extractor for furaffinity search results"""
     subcategory = "search"
     directory_fmt = ("{category}", "Search", "{search}")
-    pattern = BASE_PATTERN + r"/search/?\?([^#]+)"
-    test = ("https://www.furaffinity.net/search/?q=cute", {
-        "pattern": r"https://d\d?\.f(uraffinity|acdn)\.net"
-                   r"/art/[^/]+/\d+/\d+.\w+\.\w+",
-        "range": "45-50",
-        "count": 6,
-    })
+    pattern = BASE_PATTERN + r"/search(?:/([^/?#]+))?/?[?&]([^#]+)"
+    test = (
+        ("https://www.furaffinity.net/search/?q=cute", {
+            "pattern": r"https://d\d?\.f(uraffinity|acdn)\.net"
+                       r"/art/[^/]+/\d+/\d+.\w+\.\w+",
+            "range": "45-50",
+            "count": 6,
+        }),
+        ("https://www.furaffinity.net/search/cute&rating-general=0", {
+            "range": "1",
+            "count": 1,
+        }),
+    )
+
+    def __init__(self, match):
+        FuraffinityExtractor.__init__(self, match)
+        self.query = text.parse_query(match.group(2))
+        if self.user and "q" not in self.query:
+            self.query["q"] = text.unquote(self.user)
 
     def metadata(self):
-        self.query = text.parse_query(self.user)
         return {"search": self.query.get("q")}
 
     def posts(self):
@@ -272,6 +298,13 @@ class FuraffinityPostExtractor(FuraffinityExtractor):
                 "width"      : 120,
                 "height"     : 120,
             },
+        }),
+        # 'external' option (#1492)
+        ("https://www.furaffinity.net/view/42166511/", {
+            "options": (("external", True),),
+            "pattern": r"https://d\d*\.f(uraffinity|acdn)\.net/"
+                       r"|http://www\.postybirb\.com",
+            "count": 2,
         }),
         ("https://furaffinity.net/view/21835115/"),
         ("https://sfw.furaffinity.net/view/21835115/"),
